@@ -756,11 +756,11 @@ def show_docs(options, docs=None):
 
 def fence_action(connection, options, set_power_fn, get_power_fn, get_outlet_list=None, reboot_cycle_fn=None):
 	result = 0
-
+	logging.debug("fence_action: get_outlet_list is %s", str(type(get_outlet_list)))
 	try:
 		if "--plug" in options:
 			options["--plugs"] = options["--plug"].split(",")
-
+			logging.debug("fence_action: options[--plugs]:\n%s", options["--plugs"])
 		## Process options that manipulate fencing device
 		#####
 		if (options["--action"] in ["list", "list-status"]) or \
@@ -768,16 +768,18 @@ def fence_action(connection, options, set_power_fn, get_power_fn, get_outlet_lis
 			0 == options["device_opt"].count("port_as_ip")):
 
 			if 0 == options["device_opt"].count("port"):
-				print("N/A")
+				logging.debug("fence_action: N/A\n")
 			elif get_outlet_list == None:
 				## @todo: exception?
 				## This is just temporal solution, we will remove default value
 				## None as soon as all existing agent will support this operation
 				print("NOTICE: List option is not working on this device yet")
+				logging.debug("NOTICE: List option is not working on this device yet")
 			else:
 				options["--original-action"] = options["--action"]
 				options["--action"] = "list"
 				outlets = get_outlet_list(connection, options)
+				logging.debug("outlets are: %s", str(outlets))
 				options["--action"] = options["--original-action"]
 				del options["--original-action"]
 
@@ -790,34 +792,41 @@ def fence_action(connection, options, set_power_fn, get_power_fn, get_outlet_lis
 
 					if options["--action"] == "list":
 						print(outlet_id + options["--separator"] + alias)
+						logging.debug("fence_action: " + outlet_id + options["--separator"] + alias)
 					elif options["--action"] == "list-status":
 						print(outlet_id + options["--separator"] + alias + options["--separator"] + status)
+						logging.debug(outlet_id + options["--separator"] + alias + options["--separator"] + status)
 
 			return
 
 		if options["--action"] == "monitor" and not "port" in options["device_opt"] and "no_status" in options["device_opt"]:
 			# Unable to do standard monitoring because 'status' action is not available
+			logging.debug("fence_action: unable to do standard monitoring...'status' not available\n")
 			return 0
 
 		status = None
 		if not "no_status" in options["device_opt"]:
 			status = get_multi_power_fn(connection, options, get_power_fn)
+			logging.debug("fence_action: status = %s\n", str(status))
 			if status != "on" and status != "off":
 				fail(EC_STATUS)
 
 		if options["--action"] == status:
 			if not (status == "on" and "force_on" in options["device_opt"]):
 				print("Success: Already %s" % (status.upper()))
+				logging.debug("fence_action: Success: Already %s" % (status.upper()) + "\n")
 				return 0
 
 		if options["--action"] == "on":
 			if set_multi_power_fn(connection, options, set_power_fn, get_power_fn, 1 + int(options["--retry-on"])):
 				print("Success: Powered ON")
+				logging.debug("fence_action: Success: Powered ON\n")
 			else:
 				fail(EC_WAITING_ON)
 		elif options["--action"] == "off":
 			if set_multi_power_fn(connection, options, set_power_fn, get_power_fn):
 				print("Success: Powered OFF")
+				logging.debug("fence_action: Success: Powered OFF\n")
 			else:
 				fail(EC_WAITING_OFF)
 		elif options["--action"] == "reboot":
@@ -851,11 +860,13 @@ def fence_action(connection, options, set_power_fn, get_power_fn, get_outlet_lis
 				logging.error('Timed out waiting to power ON\n')
 
 			print("Success: Rebooted")
+			logging.debug("fence_action: Success: Rebooted\n")
 		elif options["--action"] == "status":
 			print("Status: " + status.upper())
 			if status.upper() == "OFF":
 				result = 2
 		elif options["--action"] == "monitor":
+			logging.debug("fence_action: got to last elif...passing\n")
 			pass
 	except pexpect.EOF:
 		fail(EC_CONNECTION_LOST)
